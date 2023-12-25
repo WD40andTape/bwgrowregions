@@ -55,6 +55,7 @@ function I = bwgrowregions( I, method )
     end
     connectivity = size( base, 1 );
 
+    % Identify the seed locations and labels to initialize region growing.
     sourceIndices = find( ~isnan( I ) & I ~= 0 );
     sourceValues = I(sourceIndices);
 
@@ -62,20 +63,22 @@ function I = bwgrowregions( I, method )
     % function bwdistgeodesic is faster. bwdistgeodesic can also be used
     % for multiple labels, by running it once for each label, and for each 
     % pixel selecting the label with the minimum distance. However, in my
-    % experiments, this was never faster than bwgrowregions, and 
-    % substantially slower when many labels are used.
+    % experiments, this was always slower than bwgrowregions, 
+    % substantially when there are many labels.
     seedLabels = unique( sourceValues );
     numLabels = numel( seedLabels );
     if numLabels == 1
         bw = ~isnan( I );
         mask = I == seedLabels;
-        geodesicDist = bwdistgeodesic( bw, mask, method );
-        I(~isnan( geodesicDist )) = seedLabels;
+        % Find the components connected to the seed locations.
+        distanceTransform = bwdistgeodesic( bw, mask, method );
+        I(~isnan( distanceTransform ) & ~isinf( distanceTransform )) = seedLabels;
         return % EARLY RETURN.
     end
     
-    geodesicDist = inf( [ h w d ] );
-    geodesicDist(sourceIndices) = 0;
+    % Initialize the distance transform. Seeds have a distance of 0.
+    distanceTransform = inf( [ h w d ] );
+    distanceTransform(sourceIndices) = 0;
 
     % Dilate repeatedly, until no more pixels can be reached.
     while true
@@ -84,54 +87,64 @@ function I = bwgrowregions( I, method )
         numSources = numel( sourceIndices );
         sourceIndices = repelem( sourceIndices, connectivity, 1 );
         neighbourIndices = sourceIndices + repmat( base, numSources, 1 );
-        distToNeighbours = repmat( baseDistance, numSources, 1 );
-        geodesicDistAtSource = geodesicDist( sourceIndices );
-        geodesicDistAtNeighbours = geodesicDistAtSource + distToNeighbours;
+        
+        % Keep track of the label from which each neighbour came.
         sourceValues = repelem( sourceValues, connectivity, 1 );
 
-        % Stop assessing trivial cases: do-not-label (NaN) pixels and those 
-        % with a greater distance than that of the pre-existing label.
+        % For each neighbour, calculate the distance from the seed.
+        distAtSource = distanceTransform( sourceIndices );
+        distAtNeighbours = distAtSource + ...
+            repmat( baseDistance, numSources, 1 );
+
+        % Remove neighbours labelled as do-not-label (NaN) and those 
+        % with a distance greater than that of the pre-existing label.
+        % Doing this now makes later steps more performant.
         isKeep = ~isnan( I(neighbourIndices) ) & ...
-            geodesicDistAtNeighbours < geodesicDist( neighbourIndices );
+            distAtNeighbours < distanceTransform( neighbourIndices );
         neighbourIndices = neighbourIndices(isKeep,:);
-        geodesicDistAtNeighbours = geodesicDistAtNeighbours(isKeep,:);
+        distAtNeighbours = distAtNeighbours(isKeep,:);
         sourceValues = sourceValues(isKeep,:);
+
         % For non-unique neighbours, select the neighbour with the minimum
         % distance.
-        [ ~, grName, grNum ] = unique( neighbourIndices );
-        grValue = inf( size( grName ) );
-        grIdx = zeros( size( grName ) );
-        for i = 1 : length( geodesicDistAtNeighbours )
-            if geodesicDistAtNeighbours(i) < grValue( grNum(i) )
-                grValue( grNum(i) ) = geodesicDistAtNeighbours(i);
-                grIdx( grNum(i) ) = i;
+        [ ~, groupName, groupNum ] = unique( neighbourIndices );
+        groupValue = inf( size( groupName ) );
+        groupIdx = zeros( size( groupName ) );
+        for iNeighbour = 1 : numel( neighbourIndices )
+            if distAtNeighbours(iNeighbour) < ...
+                    groupValue( groupNum(iNeighbour) )
+                groupValue( groupNum(iNeighbour) ) = ...
+                    distAtNeighbours(iNeighbour);
+                groupIdx( groupNum(iNeighbour) ) = iNeighbour;
             end
         end
-        isOverwrite = false( size( neighbourIndices ) );
-        isOverwrite( grIdx ) = true;
-        neighbourIndices = neighbourIndices(isOverwrite,:);
-        geodesicDistAtNeighbours = geodesicDistAtNeighbours(isOverwrite,:);
-        sourceValues = sourceValues(isOverwrite,:);
+        % These neighbours will be written to the distance transform and 
+        % labelled on the image.
+        isWrite = false( size( neighbourIndices ) );
+        isWrite( groupIdx ) = true;
+        neighbourIndices = neighbourIndices(isWrite,:);
+        distAtNeighbours = distAtNeighbours(isWrite,:);
+        sourceValues = sourceValues(isWrite,:);
 
-        % Dilate with source values.
+        % Grow regions.
         I(neighbourIndices) = sourceValues;
-        geodesicDist(neighbourIndices) = geodesicDistAtNeighbours;
+        distanceTransform(neighbourIndices) = distAtNeighbours;
 
-        % Use newly labeled pixels as input for next iteration.
+        % Use newly labeled pixels as the input for the next iteration.
         sourceIndices = neighbourIndices;
 
-        % Exit loop if the region has stopped growing.
+        % Exit the loop if the regions have stopped growing.
         if isempty( sourceIndices )
             if any( I == 0 )
-                warning( [ 'Some pixels were unreachable from the seed ' ...
-                    'labels and were left unlabelled.' ] )
+                warning( [ 'Some pixels were unreachable from the ' ...
+                    'seed labels and were left unlabelled.' ] )
             end
             break
         end
 
     end
 
-    % Remove padding.
+    % Remove the padding which we added to the image.
     if d == 1 % 2D (matrix).
         I = I( 2:end-1, 2:end-1 );
     else % 3D (volume).
@@ -152,8 +165,8 @@ end
 
 function mustContainSeed( a )
     if all( isnan( a ) | a == 0, "all" )
-        id = "bwgrowregions:Validators:NoSeedLabels";
-        msg = "Must contain at least 1 seed label, i.e., a nonNaN " + ...
+        id = "bwgrowregions:Validators:NoSeeds";
+        msg = "Must contain at least 1 seed, i.e., a nonNaN " + ...
             "nonzero element.";
         throwAsCaller( MException( id, msg ) )
     end
