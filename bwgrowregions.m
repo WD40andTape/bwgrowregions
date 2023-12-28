@@ -79,6 +79,7 @@ function I = bwgrowregions( I, method )
     % Initialize the distance transform. Seeds have a distance of 0.
     distanceTransform = inf( [ h w d ] );
     distanceTransform(sourceIndices) = 0;
+    sourceDist = zeros( numel( sourceIndices ), 1 );
 
     % Dilate repeatedly, until no more pixels can be reached.
     while true
@@ -89,20 +90,21 @@ function I = bwgrowregions( I, method )
         neighbourIndices = sourceIndices + repmat( base, numSources, 1 );
         
         % Keep track of the label from which each neighbour came.
+        % Reuse values from previous iteration, rather than retrieving from
+        % matrices as this is faster.
         sourceValues = repelem( sourceValues, connectivity, 1 );
+        sourceDist = repelem( sourceDist, connectivity, 1 );
 
         % For each neighbour, calculate the distance from the seed.
-        distAtSource = distanceTransform( sourceIndices );
-        distAtNeighbours = distAtSource + ...
-            repmat( baseDistance, numSources, 1 );
+        neighbourDist = sourceDist + repmat( baseDistance, numSources, 1 );
 
         % Remove neighbours labelled as do-not-label (NaN) and those 
         % with a distance greater than that of the pre-existing label.
         % Doing this now makes later steps more performant.
         isKeep = ~isnan( I(neighbourIndices) ) & ...
-            distAtNeighbours < distanceTransform( neighbourIndices );
+            neighbourDist < distanceTransform(neighbourIndices);
         neighbourIndices = neighbourIndices(isKeep,:);
-        distAtNeighbours = distAtNeighbours(isKeep,:);
+        neighbourDist = neighbourDist(isKeep,:);
         sourceValues = sourceValues(isKeep,:);
 
         % For non-unique neighbours, select the neighbour with the minimum
@@ -111,10 +113,10 @@ function I = bwgrowregions( I, method )
         groupValue = inf( size( groupName ) );
         groupIdx = zeros( size( groupName ) );
         for iNeighbour = 1 : numel( neighbourIndices )
-            if distAtNeighbours(iNeighbour) < ...
+            if neighbourDist(iNeighbour) < ...
                     groupValue( groupNum(iNeighbour) )
                 groupValue( groupNum(iNeighbour) ) = ...
-                    distAtNeighbours(iNeighbour);
+                    neighbourDist(iNeighbour);
                 groupIdx( groupNum(iNeighbour) ) = iNeighbour;
             end
         end
@@ -123,15 +125,16 @@ function I = bwgrowregions( I, method )
         isWrite = false( size( neighbourIndices ) );
         isWrite( groupIdx ) = true;
         neighbourIndices = neighbourIndices(isWrite,:);
-        distAtNeighbours = distAtNeighbours(isWrite,:);
+        neighbourDist = neighbourDist(isWrite,:);
         sourceValues = sourceValues(isWrite,:);
 
         % Grow regions.
         I(neighbourIndices) = sourceValues;
-        distanceTransform(neighbourIndices) = distAtNeighbours;
+        distanceTransform(neighbourIndices) = neighbourDist;
 
         % Use newly labeled pixels as the input for the next iteration.
         sourceIndices = neighbourIndices;
+        sourceDist = neighbourDist;
 
         % Exit the loop if the regions have stopped growing.
         if isempty( sourceIndices )
