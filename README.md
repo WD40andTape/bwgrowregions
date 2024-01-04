@@ -1,17 +1,17 @@
 # *bwgrowregions*: Multi-class region growing for binary images
 
 [![View on GitHub](https://img.shields.io/badge/GitHub-Repository-171515)](https://github.com/WD40andTape/bwgrowregions)
-<!--[![View on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)]()-->
+[![View on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://mathworks.com/matlabcentral/fileexchange/157166-bwgrowregions-multi-class-region-growing-for-binary-images)
 
 Pixels are given the label of their closest seed, according to geodesic distance. The following GIF demonstrates the process. In this example, seeds with unique labels are placed at the wrist and the tip of each finger.
 
-<img src="figure1.gif" width="700px">
+<img src="figure1.gif" width="500px">
 
-`bwgrowregions` is particularly useful for centerline- or skeleton-based segmentation, by finding the skeleton of an image, segmenting the skeleton, using it to define seeds, and growing the regions to cover the entire area of the image. For example, in figure (a) below, the centerline of the colon has been segmented into semantic segments, which is then transferred to the volume. In figure (b), the centerline has instead been split into a number of segments with a preset length.
+`bwgrowregions` is particularly useful for centerline- or skeleton-based segmentation, by finding the skeleton of an image, segmenting the skeleton, using it to define seeds, and growing the regions to cover the entire area of the image. For example, in figure (a) below, the centerline of the colon has been segmented into semantic segments, which are then transferred to the volume. In figure (b), the centerline has instead been split into a number of segments with a preset length.
 
 | (a) | (b) |
 |:--:|:--:|
-|<img src="figure2.gif" width="325px">|<img src="figure3.png" width="325px">|
+|<img src="figure2.gif" height="325px">|<img src="figure3.png" height="325px">|
 
 ## Syntax
 
