@@ -1,14 +1,67 @@
-function I = bwgrowregions( I, method )
-%BWGROWREGIONS Multi-class, distance-based segmentation of binary images.
-%   - I is a 2D image or a 3D volume, where:
-%   -- 0 represents unlabelled pixels
-%   -- NaN represents pixels not to label
-%   -- All other values represent seed labels
+function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
+%BWGROWREGIONS Multi-class region growing for binary images and volumes.
+%   Useful for centerline- or skeleton-based segmentation, by using the 
+%   labelled skeleton points as seeds. Pixels are given the label of their 
+%   closest seed, according to geodesic distance.
+% 
+%   labels = bwgrowregions( I )
+%   labels = bwgrowregions( I, distanceMetric )
+%   [ labels, distanceTransform ] = bwgrowregions( __ )
+% 
+%   INPUTS
+%   - I                  Image defining the traversable pixels and seed
+%                        locations, given as given as a 2D or 3D numeric
+%                        array. Must contain at least 1 seed. Values of:
+%                         -  Values of 0 represent unlabelled pixels which 
+%                            can be traversed. These will be labelled if a 
+%                            valid path exists, connecting it to any of the 
+%                            seeds.
+%                         -  Values of NaN represent pixels which cannot be 
+%                            traversed and will not be labelled. Paths 
+%                            between unlabelled pixels and seeds therefore 
+%                            avoid these regions.
+%                         -  All other values represent seeds, with the 
+%                            value defining that seed's label. The region
+%                            grown from a seed is given that seed's label.
+%                            Where an unlabelled pixel has a connected path
+%                            to more than one seed, the seed with the 
+%                            lowest geodesic distance is selected.
+%   - distanceMetric     Which metric to use for calculating the distance
+%                        transform. This therefore affects the precedence 
+%                        of labels for pixels with a path connected to more 
+%                        than one seed. Either:
+%                         - "chessboard" : Measures the path between pixels 
+%                              based on an 8- or 26-connected neighborhood. 
+%                              In 2D, pixels whose edges or corners touch 
+%                              are 1 unit apart.
+%                         - "cityblock" : Measures the path between pixels 
+%                              based on a 4- or 6-connected neighborhood. 
+%                              In 2D, pixels whose edges touch are 1 unit 
+%                              apart, and pixels diagonally touching are 2 
+%                              units apart.
+%                         - "quasi-euclidean" : (default) Measures the path 
+%                              between neighbouring pixels as the 
+%                              straight-line distance between them.
+%   OUTPUTS
+%   - labels             Label matrix of the segmented region of I, 
+%                        according to the traversable region, seed 
+%                        locations, and seed labels. Each pixel is given of
+%                        the closest seed. Traversable regions without a 
+%                        connected path to any seed have a value of 0.
+%                        Untraversable regions have a value of NaN. To plot 
+%                        the output, first set all NaN values to 0, i.e., 
+%                        labels(isnan(labels)) = 0.
+%   - distanceTransform  Geodesic distances to the closest seed, returned 
+%                        as a numeric array of the same size as I. Seed 
+%                        locations have a value of 0, while pixels which 
+%                        are not traversable or cannot be reached have a 
+%                        value of Inf.
 
     arguments
         I { mustBeNumeric, mustBe2Dor3D, mustContainSeed }
-        method { mustBeMember( method, { 'chessboard', 'cityblock', ...
-            'quasi-euclidean' } ) } = 'quasi-euclidean'
+        distanceMetric { mustBeMember( distanceMetric, ...
+            { 'chessboard', 'cityblock', 'quasi-euclidean' } ) } ...
+            = 'quasi-euclidean'
     end
 
     % Pad the image so that the neighbours of all pixel are within the 
@@ -27,9 +80,9 @@ function I = bwgrowregions( I, method )
     % subscripts avoids a call to sub2ind.
     if d == 1 % 2D (matrix).
         base = [ -h-1, -h, -h+1, -1, +1, +h-1, +h, +h+1 ]';
-        if strncmp( method, 'chessboard', 2 )
+        if strncmp( distanceMetric, 'chessboard', 2 )
             baseDistance = [ 1, 1, 1, 1, 1, 1, 1, 1 ]';
-        elseif strncmp( method, 'cityblock', 2 )
+        elseif strncmp( distanceMetric, 'cityblock', 2 )
             baseDistance = [ 2, 1, 2, 1, 1, 2, 1, 2 ]';
         else % 'quasi-euclidean'
             baseDistance = [ sqrt(2), 1, sqrt(2), 1, 1, ...
@@ -40,10 +93,10 @@ function I = bwgrowregions( I, method )
             -h*w+h-1, -h*w+h, -h*w+h+1, -h-1, -h, -h+1, -1, +1, +h-1, ...
             +h, +h+1, +h*w-h-1, +h*w-h, +h*w-h+1, +h*w-1, +h*w, +h*w+1, ...
             +h*w+h-1, +h*w+h, +h*w+h+1 ]';
-        if strncmp( method, 'chessboard', 2 )
+        if strncmp( distanceMetric, 'chessboard', 2 )
             baseDistance = [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ]';
-        elseif strncmp( method, 'cityblock', 2 )
+        elseif strncmp( distanceMetric, 'cityblock', 2 )
             baseDistance = [ 3, 2, 3, 2, 1, 2, 3, 2, 3, 2, 1, 2, 1, ...
                 1, 2, 1, 2, 3, 2, 3, 2, 1, 2, 3, 2, 3 ]';
         else % 'quasi-euclidean'
@@ -71,8 +124,10 @@ function I = bwgrowregions( I, method )
         bw = ~isnan( I );
         mask = I == seedLabels;
         % Find the components connected to the seed locations.
-        distanceTransform = bwdistgeodesic( bw, mask, method );
-        I(~isnan( distanceTransform ) & ~isinf( distanceTransform )) = seedLabels;
+        distanceTransform = bwdistgeodesic( bw, mask, distanceMetric );
+        reachablePixels = ~isnan( distanceTransform ) & ...
+            ~isinf( distanceTransform );
+        I(reachablePixels) = seedLabels;
         return % EARLY RETURN.
     end
     
