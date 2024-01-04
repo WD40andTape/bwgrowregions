@@ -11,8 +11,8 @@ function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
 % 
 %   INPUTS
 %   - I                  Image defining the traversable pixels and seed
-%                        locations, given as given as a 2D or 3D numeric
-%                        array. Must contain at least 1 seed. Values of:
+%                        locations, given as a 2D or 3D numeric array. Must 
+%                        contain at least 1 seed. Note:
 %                         -  Values of 0 represent unlabelled pixels which 
 %                            can be traversed. These will be labelled if a 
 %                            valid path exists, connecting it to any of the 
@@ -27,10 +27,10 @@ function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
 %                            Where an unlabelled pixel has a connected path
 %                            to more than one seed, the seed with the 
 %                            lowest geodesic distance is selected.
-%   - distanceMetric     Which metric to use for calculating the distance
-%                        transform. This therefore affects the precedence 
-%                        of labels for pixels with a path connected to more 
-%                        than one seed. Either:
+%   - distanceMetric     (Optional) Which metric to use for calculating the 
+%                        distance transform. This therefore affects the 
+%                        precedence of labels for pixels with a path 
+%                        connected to more than one seed. Either:
 %                         - "chessboard" : Measures the path between pixels 
 %                              based on an 8- or 26-connected neighborhood. 
 %                              In 2D, pixels whose edges or corners touch 
@@ -46,8 +46,9 @@ function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
 %   OUTPUTS
 %   - labels             Label matrix of the segmented region of I, 
 %                        according to the traversable region, seed 
-%                        locations, and seed labels. Each pixel is given of
-%                        the closest seed. Traversable regions without a 
+%                        locations, and seed labels. Returned as a numeric 
+%                        array of the same size as I. Each pixel is given 
+%                        of the closest seed. Traversable regions without a 
 %                        connected path to any seed have a value of 0.
 %                        Untraversable regions have a value of NaN. To plot 
 %                        the output, first set all NaN values to 0, i.e., 
