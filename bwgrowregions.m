@@ -1,12 +1,13 @@
 function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
 %BWGROWREGIONS Multi-class region growing for binary images and volumes.
 %   Useful for centerline- or skeleton-based segmentation, by using the 
-%   labelled skeleton points as seeds. Pixels are given the label of their 
-%   closest seed, according to geodesic distance.
+%   skeleton to define seeds. Pixels are given the label of their closest 
+%   seed, according to geodesic distance.
 % 
-%   labels = bwgrowregions( I )
-%   labels = bwgrowregions( I, distanceMetric )
-%   [ labels, distanceTransform ] = bwgrowregions( __ )
+%   SYNTAX
+%   - labels = bwgrowregions( I )
+%   - labels = bwgrowregions( I, distanceMetric )
+%   - [ labels, distanceTransform ] = bwgrowregions( __ )
 % 
 %   INPUTS
 %   - I                  Image defining the traversable pixels and seed
@@ -56,6 +57,20 @@ function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
 %                        locations have a value of 0, while pixels which 
 %                        are not traversable or cannot be reached have a 
 %                        value of Inf.
+% 
+%   EXAMPLES: Please see the file 'examples.mlx' or 'examples.pdf'.
+% 
+%   Created in 2022b. Compatible with 2019b and later. Compatible with all 
+%   platforms. Please cite George Abrahams 
+%   https://github.com/WD40andTape/bwgrowregions.
+% 
+%   See also BWDISTGEODESIC, IMDILATE, BWSKEL, and BWMORPH.
+
+%   Published under MIT License (see LICENSE.txt).
+%   Copyright (c) 2023 George Abrahams.
+%   - https://github.com/WD40andTape/
+%   - https://www.linkedin.com/in/georgeabrahams/
+%   - https://scholar.google.com/citations?user=T_xxZLwAAAAJ
 
     arguments
         I { mustBeNumeric, mustBe2Dor3D, mustContainSeed }
