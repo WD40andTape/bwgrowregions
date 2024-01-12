@@ -81,7 +81,9 @@ function [ I, distanceTransform ] = bwgrowregions( I, distanceMetric )
     end
 
     % Pad the image so that the neighbours of all pixel are within the 
-    % matrix bounds.
+    % matrix bounds. We can instead detect neighbours in subscripts and
+    % exclude them, but this is slower, as we would need to convert the 
+    % subscripts to/from linear indices.
     if ismatrix( I )
         I = padarray( I, [1 1], NaN );
     else % 3D (volume).
